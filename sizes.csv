@@ -1,0 +1,3 @@
+L,polyDeg,G1_size_bytes,G2_size_bytes,GT_size_bytes,CRS_size_bytes,PublicKey_size_bytes,MasterPublicKey_size_bytes,SecretKey_size_bytes,HelperSecretKey_size_bytes
+16,10,96,192,576,9316,4032,1920,192,384
+64,42,96,192,576,34661,14016,3456,192,384

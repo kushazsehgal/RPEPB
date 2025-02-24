@@ -1,0 +1,60 @@
+package main
+
+import (
+	"fmt"
+	"time"
+
+	"pooled_decrypt/decoder"
+	"pooled_decrypt/models"
+)
+// groupOrder should match the prime order of your elliptic curve / pairing group.
+// For example, BN254's order is about 2.18e76. Here is a placeholder:
+// GTEqual compares two GT elements by marshaling them to bytes.
+func GTEqual(a, b models.GTElement) bool {
+    aBytes, _ := a.E.MarshalBinary()
+    bBytes, _ := b.E.MarshalBinary()
+    return string(aBytes) == string(bBytes)
+}
+
+func main() {
+	// Set parameters.
+	// L must be a perfect square for the CRS setup.
+	L := 16          // Total number of users.
+	polyDeg := 5     // Use polyDeg+1 = 3 users for threshold decryption.
+
+	// Initialize the Decoder (this will set up the CRS, generate key pairs,
+	// aggregate public keys, and sample polyDeg+1 users).
+	dec := decoder.NewDecoder(L, polyDeg)
+	fmt.Println("Decoder initialized.")
+
+	// Encrypt a random value.
+	startEnc := time.Now()
+	ct, psiGT := dec.Encrypt()
+	fmt.Printf("Encryption completed in %s.\n", time.Since(startEnc))
+
+	// Decrypt the ciphertext using the selected subset of users.
+	decResult := dec.Decode(ct)
+	fmt.Println("Decryption completed.")
+
+
+	// Check if decryption was successful.
+	if GTEqual(psiGT,decResult) {
+		fmt.Println("Success: Decrypted value matches the original!")
+	} else {
+		fmt.Println("Error: Decrypted value does not match the original.")
+	}
+	ctTrace, psiGTTrace := dec.TraceEncrypt(L-1)// will fail every time
+	fmt.Printf("TracecEncryption completed\n")
+
+	// Decrypt the ciphertext using the selected subset of users.
+	decResultTrace := dec.Decode(ctTrace)
+	fmt.Println("Trace Decryption completed.")
+
+
+	// Check if decryption was successful.
+	if GTEqual(psiGTTrace,decResultTrace) {
+		fmt.Println("Success: Decrypted Trace value matches the original!")
+	} else {
+		fmt.Println("Error: Decrypted Trace value does not match the original.")
+	}
+}

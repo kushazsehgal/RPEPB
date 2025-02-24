@@ -1,0 +1,182 @@
+package main
+
+import (
+	"encoding/csv"
+	"fmt"
+	"math"
+	"math/rand"
+	"os"
+	"strconv"
+	"time"
+
+	"pooled_decrypt/models"
+	"pooled_decrypt/scheme"
+	"pooled_decrypt/utils"
+)
+
+// groupOrder should match the prime order of your elliptic curve / pairing group.
+// For example, BN254's order is about 2.18e76. Here is a placeholder:
+// GTEqual compares two GT elements by marshaling them to bytes.
+func GTEqual(a, b models.GTElement) bool {
+    aBytes, _ := a.E.MarshalBinary()
+    bBytes, _ := b.E.MarshalBinary()
+    return string(aBytes) == string(bBytes)
+}
+
+// pickRandomSubset returns 'count' distinct random integers in [0..max-1].
+func pickRandomSubset(count, max int) []int {
+    if count > max {
+        panic("pickRandomSubset: count > max")
+    }
+    set := make(map[int]bool)
+    for len(set) < count {
+        idx := rand.Intn(max)
+        set[idx] = true
+    }
+    // Convert to slice
+    result := make([]int, 0, count)
+    for k := range set {
+        result = append(result, k)
+    }
+    return result
+}
+
+func main() {
+    rand.Seed(time.Now().UnixNano())
+
+    // We’ll do an example with L=16. You can adjust or iterate over multiple L’s.
+    Lvalues := []int{16}
+
+    // CSV file setup
+    csvFileName := "times.csv"
+    file, err := os.OpenFile(csvFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+    if err != nil {
+        panic(err)
+    }
+    defer file.Close()
+    writer := csv.NewWriter(file)
+    defer writer.Flush()
+
+    // Write header only if file is empty
+    info, err := file.Stat()
+    if err != nil {
+        panic(err)
+    }
+    if info.Size() == 0 {
+        writer.Write([]string{
+            "L", "n1", "n2", "polyDeg",
+            "setup_time_ms",
+            "avg_keygen_time_ms",
+            "aggregate_time_ms",
+            "avg_enc_time_ms",
+            "avg_threshold_dec_time_ms",
+        })
+    }
+
+    for _, L := range Lvalues {
+        // Example: polyDeg = T for threshold
+        polyDeg := 5
+
+        // n1, n2 as in your scheme
+        sqrtL := int(math.Sqrt(float64(L)))
+        n1 := 2 * sqrtL
+        n2 := sqrtL + 1
+
+        fmt.Printf("Benchmarking L=%d, n1=%d, n2=%d, polyDeg=%d\n", L, n1, n2, polyDeg)
+
+        // ---------------- Setup ----------------
+        startSetup := time.Now()
+        crs := scheme.Setup(L, polyDeg)
+        setupTime := time.Since(startSetup)
+
+        // ---------------- Key Generation for L users ----------------
+        var totalKeygen time.Duration
+        pks := make([]models.PublicKey, L)
+        sks := make([]models.SecretKey, L)
+        for userIdx := 0; userIdx < L; userIdx++ {
+            startKG := time.Now()
+            pk, sk := scheme.Keygen(crs, userIdx)
+            kgTime := time.Since(startKG)
+            totalKeygen += kgTime
+            pks[userIdx] = pk
+            sks[userIdx] = sk
+        }
+        avgKeygen := totalKeygen / time.Duration(L)
+
+        // ---------------- Aggregate ----------------
+
+        startAgg := time.Now()
+        mpk, hskArr := scheme.Aggregate(crs, pks)
+        aggTime := time.Since(startAgg)
+
+        // ---------------- Encryption / THRESHOLD Decryption Tests ----------------
+        iterations := 20
+        // iterations := 1
+        var totalEnc, totalTDec time.Duration
+
+        for i := 0; i < iterations; i++ {
+            psi := models.RandomScalar()
+            x,y := utils.Z_bigInt(psi, L)
+
+            // Encrypt
+            startEnc := time.Now()
+            ct := scheme.Encrypt(crs, mpk, x, y)
+            encTime := time.Since(startEnc)
+            totalEnc += encTime
+
+            // Now do threshold decryption with polyDeg users
+            startTDec := time.Now()
+
+            // 1) Pick polyDeg distinct users from [0..L-1]
+            subset := pickRandomSubset(polyDeg+1, L)
+            // subset := []int{0, 1, 2, 3, 4, 5}
+
+            // 2) Each user ℓ does partial decrypt -> d_ℓ in GT
+        //    We store them in an array indexed by ℓ
+            partials := make([]models.GTElement, L) // or size L if indexing by user
+            for _, u := range subset {
+                // Decrypt returns a partial in GT
+                dL := scheme.Decrypt(crs, sks[u], u, hskArr[u], ct)
+                partials[u] = dL
+            }
+
+            // 3) Combine partial decryptions
+            //    scheme.Combine does the Lagrange interpolation in GT
+            mDecGT := scheme.Combine(ct, partials, subset, models.Order)
+
+            tdecTime := time.Since(startTDec)
+            totalTDec += tdecTime
+            
+            expected := models.GTGenerator().Exp(psi)
+            if !GTEqual(mDecGT, expected) {
+                fmt.Printf("[FAIL] iteration=%d: threshold-dec mismatch (got != expected)\n", i)
+            }
+
+        }
+
+        avgEnc := totalEnc / time.Duration(iterations)
+        avgTDec := totalTDec / time.Duration(iterations)
+
+        // Write to CSV
+        record := []string{
+            strconv.Itoa(L),
+            strconv.Itoa(n1),
+            strconv.Itoa(n2),
+            strconv.Itoa(polyDeg),
+            fmt.Sprintf("%.4f", float64(setupTime.Milliseconds())),
+            fmt.Sprintf("%.4f", float64(avgKeygen.Milliseconds())),
+            fmt.Sprintf("%.4f", float64(aggTime.Milliseconds())),
+            fmt.Sprintf("%.4f", float64(avgEnc.Milliseconds())),
+            fmt.Sprintf("%.4f", float64(avgTDec.Milliseconds())),
+        }
+        writer.Write(record)
+
+        fmt.Printf("L=%d n1=%d n2=%d polyDeg=%d\n", L, n1, n2, polyDeg)
+        fmt.Printf("setup=%.4f ms | keygen=%.4f ms | agg=%.4f ms | enc=%.4f ms | threshold-dec=%.4f ms\n",
+            float64(setupTime.Milliseconds()),
+            float64(avgKeygen.Milliseconds()),
+            float64(aggTime.Milliseconds()),
+            float64(avgEnc.Milliseconds()),
+            float64(avgTDec.Milliseconds()))
+    }
+}
