@@ -302,13 +302,14 @@ func testSizes(Lvalues []int) {
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
-	Lvalues := []int{16,64}
+	// Lvalues := []int{16,64}
+	// trialsPerSetting := 2
+	Lvalues := []int{16, 64, 256, 1024}
+	trialsPerSetting := 5
 	fmt.Println("Measuring sizes for group elements and keys...")
 	testSizes(Lvalues)
 	fmt.Println("Size measurements completed.")
-	// Lvalues := []int{16, 64, 256, 1024}
-	// trialsPerSetting := 5
-	trialsPerSetting := 2
+	
 	fmt.Println("Starting scheme direct tests...")
 	testSchemeDirectly(Lvalues, trialsPerSetting)
 	fmt.Println("Scheme tests completed.")
