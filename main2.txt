@@ -1,60 +1,179 @@
 package main
 
 import (
+	"encoding/csv"
 	"fmt"
+	"log"
+	"math"
+	"os"
+	"runtime"
+	"strconv"
 	"time"
 
 	"pooled_decrypt/decoder"
 	"pooled_decrypt/models"
+	"pooled_decrypt/scheme"
+	"pooled_decrypt/utils"
 )
-// groupOrder should match the prime order of your elliptic curve / pairing group.
-// For example, BN254's order is about 2.18e76. Here is a placeholder:
-// GTEqual compares two GT elements by marshaling them to bytes.
-func GTEqual(a, b models.GTElement) bool {
-    aBytes, _ := a.E.MarshalBinary()
-    bBytes, _ := b.E.MarshalBinary()
-    return string(aBytes) == string(bBytes)
+
+// measureTaskMemory measures total allocated bytes (using TotalAlloc)
+// incurred during the execution of the given task.
+func measureTaskMemory(task func()) uint64 {
+	runtime.GC()
+	var m1 runtime.MemStats
+	runtime.ReadMemStats(&m1)
+	task()
+	runtime.GC()
+	var m2 runtime.MemStats
+	runtime.ReadMemStats(&m2)
+	return m2.TotalAlloc - m1.TotalAlloc
+}
+
+// measureMemoryCT creates a ciphertext (by building its C3 and C4 slices)
+// and marshals it. This function triggers the allocations for the ciphertext.
+func measureMemoryCT(L int) uint64 {
+	return measureTaskMemory(func() {
+		sqrtL := int(math.Sqrt(float64(L)))
+		n1 := 2 * sqrtL
+		n2 := sqrtL + 1
+
+		// Build the slices for C3 and C4.
+		C3 := make([][2]models.G1Element, n1)
+		for i := 0; i < n1; i++ {
+			C3[i] = [2]models.G1Element{models.G1Generator(), models.G1Generator()}
+		}
+		C4 := make([][2]models.G2Element, n2)
+		for i := 0; i < n2; i++ {
+			C4[i] = [2]models.G2Element{models.G2Generator(), models.G2Generator()}
+		}
+
+		// Create a ciphertext.
+		ct := scheme.Ciphertext{
+			C1: models.G1Generator(),
+			C2: models.G1Generator(),
+			C3: C3,
+			C4: C4,
+		}
+		// Marshal the ciphertext (to trigger binary encoding allocations).
+		_, _ = ct.MarshalBinary()
+		time.Sleep(10 * time.Millisecond)
+	})
+}
+
+// measureMemorySizes creates the CRS, generates L key pairs, and aggregates them,
+// which allocates memory for the CRS and keys.
+func measureMemorySizes(L int) uint64 {
+	return measureTaskMemory(func() {
+		polyDeg := int(math.Floor(2 * float64(L) / 3))
+		if L <= polyDeg {
+			return
+		}
+		crs := scheme.Setup(L, polyDeg)
+		// Optionally trigger marshaling to force any lazy allocations.
+		_, _ = crs.MarshalBinary()
+		pks := make([]models.PublicKey, L)
+		sks := make([]models.SecretKey, L)
+		for i := 0; i < L; i++ {
+			p, s := scheme.Keygen(crs, i)
+			pks[i] = p
+			sks[i] = s
+		}
+		mpk, hskArr := scheme.Aggregate(crs, pks)
+		_, _ = mpk.MarshalBinary()
+		if len(hskArr) > 0 {
+			_, _ = hskArr[0].MarshalBinary()
+		}
+		time.Sleep(10 * time.Millisecond)
+	})
+}
+
+// measureMemoryScheme performs one full encryption round (setup, keygen, aggregate, and encryption)
+// to measure the memory allocated during a typical scheme run.
+func measureMemoryScheme(L int) uint64 {
+	return measureTaskMemory(func() {
+		polyDeg := int(math.Floor(2 * float64(L) / 3))
+		if L <= polyDeg {
+			return
+		}
+		crs := scheme.Setup(L, polyDeg)
+		pks := make([]models.PublicKey, L)
+		sks := make([]models.SecretKey, L)
+		for i := 0; i < L; i++ {
+			pk, sk := scheme.Keygen(crs, i)
+			pks[i] = pk
+			sks[i] = sk
+		}
+		mpk, _ := scheme.Aggregate(crs, pks)
+		psi := models.RandomScalar()
+		x, y := utils.Z_bigInt(psi, L)
+		_ = scheme.Encrypt(crs, mpk, x, y)
+		time.Sleep(10 * time.Millisecond)
+	})
+}
+
+// measureMemoryDecoder creates a decoder and performs a trace decryption,
+// measuring the memory allocated for decoder operations.
+func measureMemoryDecoder(L int) uint64 {
+	return measureTaskMemory(func() {
+		polyDeg := int(math.Floor(2 * float64(L) / 3))
+		if L <= polyDeg {
+			return
+		}
+		dec := decoder.NewDecoder(L, polyDeg)
+		_ = dec.TraceD()
+		time.Sleep(10 * time.Millisecond)
+	})
+}
+
+// testMemoryUsage iterates over the given L values and for each task,
+// measures the memory allocated and writes the results to a CSV file.
+func testMemoryUsage(Lvalues []int) {
+	csvFileName := "memory_usage.csv"
+	file, err := os.Create(csvFileName)
+	if err != nil {
+		log.Fatalf("Error creating CSV file: %v", err)
+	}
+	defer file.Close()
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	// Write CSV header.
+	if err := writer.Write([]string{"Task", "L", "MemoryUsedBytes"}); err != nil {
+		log.Fatalf("Error writing CSV header: %v", err)
+	}
+
+	tasks := []struct {
+		name    string
+		measure func(int) uint64
+	}{
+		{"Ciphertext", measureMemoryCT},
+		{"Sizes", measureMemorySizes},
+		{"Scheme", measureMemoryScheme},
+		{"Decoder", measureMemoryDecoder},
+	}
+
+	for _, L := range Lvalues {
+		for _, task := range tasks {
+			memUsed := task.measure(L)
+			record := []string{
+				task.name,
+				strconv.Itoa(L),
+				strconv.FormatUint(memUsed, 10),
+			}
+			if err := writer.Write(record); err != nil {
+				log.Fatalf("Error writing record to CSV: %v", err)
+			}
+			writer.Flush()
+			fmt.Printf("Task %s for L=%d used memory: %d bytes\n", task.name, L, memUsed)
+		}
+	}
 }
 
 func main() {
-	// Set parameters.
-	// L must be a perfect square for the CRS setup.
-	L := 16          // Total number of users.
-	polyDeg := 5     // Use polyDeg+1 = 3 users for threshold decryption.
-
-	// Initialize the Decoder (this will set up the CRS, generate key pairs,
-	// aggregate public keys, and sample polyDeg+1 users).
-	dec := decoder.NewDecoder(L, polyDeg)
-	fmt.Println("Decoder initialized.")
-
-	// Encrypt a random value.
-	startEnc := time.Now()
-	ct, psiGT := dec.Encrypt()
-	fmt.Printf("Encryption completed in %s.\n", time.Since(startEnc))
-
-	// Decrypt the ciphertext using the selected subset of users.
-	decResult := dec.Decode(ct)
-	fmt.Println("Decryption completed.")
-
-
-	// Check if decryption was successful.
-	if GTEqual(psiGT,decResult) {
-		fmt.Println("Success: Decrypted value matches the original!")
-	} else {
-		fmt.Println("Error: Decrypted value does not match the original.")
-	}
-	ctTrace, psiGTTrace := dec.TraceEncrypt(L-1)// will fail every time
-	fmt.Printf("TracecEncryption completed\n")
-
-	// Decrypt the ciphertext using the selected subset of users.
-	decResultTrace := dec.Decode(ctTrace)
-	fmt.Println("Trace Decryption completed.")
-
-
-	// Check if decryption was successful.
-	if GTEqual(psiGTTrace,decResultTrace) {
-		fmt.Println("Success: Decrypted Trace value matches the original!")
-	} else {
-		fmt.Println("Error: Decrypted Trace value does not match the original.")
-	}
+	// Define the L values for which to measure memory usage.
+	// Lvalues := []int{16, 64, 256, 1024}
+	Lvalues := []int{4}
+	fmt.Println("Measuring total memory usage for all tasks...")
+	testMemoryUsage(Lvalues)
+	fmt.Println("Memory usage measurements written to memory_usage.csv")
 }

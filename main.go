@@ -365,7 +365,7 @@ func main() {
 	// Lvalues := []int{16,64}
 	// trialsPerSetting := 2
 	Lvalues := []int{16, 64, 256, 1024}
-	trialsPerSetting := 5
+	trialsPerSetting := 1
 
 	fmt.Println("Measuring sizes for ciphertexts...")
 	testCT(Lvalues)
