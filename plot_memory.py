@@ -7,9 +7,9 @@ import argparse
 import time
 from datetime import datetime
 
-def monitor_process(process_name, interval=2, duration=300):
+def monitor_process(process_pid, interval=2, duration=300):
     """Monitor memory usage of a specific process"""
-    print(f"ðŸ” Monitoring process: {process_name}")
+    print(f"ðŸ” Monitoring process: {process_pid}")
     print(f"â± Sampling every {interval}s for {duration//60} minutes")
     
     data = []
@@ -20,7 +20,7 @@ def monitor_process(process_name, interval=2, duration=300):
         timestamp = datetime.now()
         
         for proc in psutil.process_iter(['pid', 'name', 'memory_info']):
-            if process_name.lower() in proc.info['name'].lower():
+            if process_pid.lower() in proc.info['pid'].lower():
                 mem = proc.info['memory_info'].rss / (1024 * 1024)  # Convert to MB
                 data.append({
                     'Timestamp': timestamp,
@@ -31,18 +31,18 @@ def monitor_process(process_name, interval=2, duration=300):
                 break
         
         if not found:
-            print(f"âš ï¸ Process '{process_name}' not found! Retrying...")
+            print(f"âš ï¸ Process '{process_pid}' not found! Retrying...")
         
         time.sleep(interval)
     
     return pd.DataFrame(data)
 
-def plot_memory(df, process_name):
+def plot_memory(df, process_pid):
     """Plot memory usage with professional styling"""
     plt.style.use('seaborn-v0_8-darkgrid')
     fig, ax = plt.subplots(figsize=(14, 8), facecolor='#f0f0f0')
     
-    fig.suptitle(f'Memory Usage: {process_name}', y=0.95, 
+    fig.suptitle(f'Memory Usage: {process_pid}', y=0.95, 
                 fontsize=18, fontweight='bold')
     
     ax.plot(df['Timestamp'], df['Memory (MB)'], 
@@ -65,7 +65,7 @@ def plot_memory(df, process_name):
                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
     
     plt.tight_layout()
-    plt.savefig(f'memory_usage_{process_name}.png', dpi=300)
+    plt.savefig(f'memory_usage_{process_pid}.png', dpi=300)
     plt.show()
 
 if __name__ == "__main__":
