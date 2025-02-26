@@ -4,6 +4,7 @@ import (
 	"encoding"
 	"encoding/csv"
 	"fmt"
+	"log"
 	"math"
 	"math/rand"
 	"os"
@@ -299,6 +300,65 @@ func testSizes(Lvalues []int) {
 	}
 }
 
+func testCT(Lvalues []int){
+	file, err := os.Create("ciphertext_sizes.csv")
+	if err != nil {
+		log.Fatalf("Error creating CSV file: %v", err)
+	}
+	defer file.Close()
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	// Write CSV header.
+	if err := writer.Write([]string{"L", "n1", "n2", "size of ciphertext"}); err != nil {
+		log.Fatalf("Error writing header to CSV: %v", err)
+	}
+
+	for _, L := range Lvalues {
+		// Compute sqrtL, n1, and n2.
+		sqrtL := int(math.Sqrt(float64(L)))
+		n1 := 2 * sqrtL
+		n2 := sqrtL + 1
+
+		// Build the slices.
+		C3 := make([][2]models.G1Element, n1)
+		for i := 0; i < n1; i++ {
+			C3[i] = [2]models.G1Element{models.G1Generator(), models.G1Generator()}
+		}
+		C4 := make([][2]models.G2Element, n2)
+		for i := 0; i < n2; i++ {
+			C4[i] = [2]models.G2Element{models.G2Generator(), models.G2Generator()}
+		}
+
+		// Create the ciphertext.
+		ct := scheme.Ciphertext{
+			C1: models.G1Generator(),
+			C2: models.G1Generator(),
+			C3: C3,
+			C4: C4,
+		}
+
+		// Marshal the ciphertext.
+		marshaled, err := ct.MarshalBinary()
+		if err != nil {
+			log.Fatalf("Error marshaling ciphertext: %v", err)
+		}
+		size := len(marshaled)
+
+		// Write the computed values as a row in the CSV file.
+		record := []string{
+			fmt.Sprintf("%d", L),
+			fmt.Sprintf("%d", n1),
+			fmt.Sprintf("%d", n2),
+			fmt.Sprintf("%d", size),
+		}
+		if err := writer.Write(record); err != nil {
+			log.Fatalf("Error writing record to CSV: %v", err)
+		}
+
+		fmt.Printf("L=%d, n1=%d, n2=%d, size of ciphertext: %d bytes\n", L, n1, n2, size)
+	}
+}
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
@@ -306,6 +366,10 @@ func main() {
 	// trialsPerSetting := 2
 	Lvalues := []int{16, 64, 256, 1024}
 	trialsPerSetting := 5
+
+	fmt.Println("Measuring sizes for ciphertexts...")
+	testCT(Lvalues)
+	fmt.Println("Ciphertext size measurements completed.")
 	fmt.Println("Measuring sizes for group elements and keys...")
 	testSizes(Lvalues)
 	fmt.Println("Size measurements completed.")

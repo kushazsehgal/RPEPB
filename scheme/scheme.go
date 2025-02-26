@@ -3,6 +3,8 @@ package scheme
 
 import (
 	// "math"
+	"bytes"
+	"encoding/binary"
 	"math"
 	"math/big"
 
@@ -337,4 +339,54 @@ func Combine(
 
 
     return K
+}
+
+func (ct *Ciphertext) MarshalBinary() ([]byte, error) {
+	buf := new(bytes.Buffer)
+
+	// Serialize C1.
+	b, err := ct.C1.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	buf.Write(b)
+
+	// Serialize C2.
+	b, err = ct.C2.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	buf.Write(b)
+
+	// Write the number of pairs in C3 as a uint32.
+	if err := binary.Write(buf, binary.BigEndian, uint32(len(ct.C3))); err != nil {
+		return nil, err
+	}
+	// Serialize each pair in C3 (each pair is [2]G1Element).
+	for _, pair := range ct.C3 {
+		for _, elem := range pair {
+			b, err := elem.MarshalBinary()
+			if err != nil {
+				return nil, err
+			}
+			buf.Write(b)
+		}
+	}
+
+	// Write the number of pairs in C4 as a uint32.
+	if err := binary.Write(buf, binary.BigEndian, uint32(len(ct.C4))); err != nil {
+		return nil, err
+	}
+	// Serialize each pair in C4 (each pair is [2]G2Element).
+	for _, pair := range ct.C4 {
+		for _, elem := range pair {
+			b, err := elem.MarshalBinary()
+			if err != nil {
+				return nil, err
+			}
+			buf.Write(b)
+		}
+	}
+
+	return buf.Bytes(), nil
 }
