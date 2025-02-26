@@ -20,7 +20,7 @@ def monitor_process(process_pid, interval=2, duration=300):
         timestamp = datetime.now()
         
         for proc in psutil.process_iter(['pid', 'name', 'memory_info']):
-            if process_pid.lower() in proc.info['pid'].lower():
+            if int(process_pid) ==  proc.info['pid']:
                 mem = proc.info['memory_info'].rss / (1024 * 1024)  # Convert to MB
                 data.append({
                     'Timestamp': timestamp,
