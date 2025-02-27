@@ -31,7 +31,8 @@ def monitor_process(process_pid, interval=2, duration=300):
                 break
         
         if not found:
-            print(f"âš ï¸ Process '{process_pid}' not found! Retrying...")
+            print(f"âš ï¸ Process '{process_pid}' not found! exiting...")
+            return pd.DataFrame(data)
         
         time.sleep(interval)
     
