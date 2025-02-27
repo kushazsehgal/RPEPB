@@ -359,6 +359,48 @@ func testCT(Lvalues []int){
 		fmt.Printf("L=%d, n1=%d, n2=%d, size of ciphertext: %d bytes\n", L, n1, n2, size)
 	}
 }
+func testExponentiationTime(trials int){
+	g1 := models.G1Generator()
+	g2 := models.G2Generator()
+
+	// Measure time for 1000 exponentiations in G1.
+	startG1 := time.Now()
+	for i := 0; i < trials; i++ {
+		_ = g1.Exp(models.RandomScalar())
+	}
+	g1Time := time.Since(startG1)
+
+	// Measure time for 1000 exponentiations in G2.
+	startG2 := time.Now()
+	for i := 0; i < trials; i++ {
+		_ = g2.Exp(models.RandomScalar())
+	}
+	g2Time := time.Since(startG2)
+
+	// calculate average and store in csv
+	avgG1Time := g1Time / time.Duration(trials)
+	avgG2Time := g2Time / time.Duration(trials)
+
+	file, err := os.Create("exponentiation_times.csv")
+	if err != nil {
+		log.Fatalf("Error creating CSV file: %v", err)
+	}
+	defer file.Close()
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+	if err := writer.Write([]string{"Element, avg time for exponentiation (microseconds)"}); err != nil {
+		log.Fatalf("Error writing header to CSV: %v", err)
+	}
+	if err := writer.Write([]string{"G1", fmt.Sprintf("%d", avgG1Time.Microseconds())}); err != nil {
+		log.Fatalf("Error writing record to CSV: %v", err)
+	}
+	if err := writer.Write([]string{"G2", fmt.Sprintf("%d", avgG2Time.Microseconds())}); err != nil {
+		log.Fatalf("Error writing record to CSV: %v", err)
+	}
+
+
+
+}
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
@@ -366,6 +408,10 @@ func main() {
 	// trialsPerSetting := 2
 	Lvalues := []int{16, 64, 256, 1024}
 	trialsPerSetting := 3
+
+	fmt.Println("Starting exponentiation time tests...")
+	testExponentiationTime(10)
+	fmt.Println("Exponentiation time tests completed.")
 
 	fmt.Println("Measuring sizes for ciphertexts...")
 	testCT(Lvalues)
