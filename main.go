@@ -362,6 +362,7 @@ func testCT(Lvalues []int){
 func testExponentiationTime(trials int){
 	g1 := models.G1Generator()
 	g2 := models.G2Generator()
+	gT := models.GTGenerator()
 
 	// Measure time for 1000 exponentiations in G1.
 	startG1 := time.Now()
@@ -377,9 +378,16 @@ func testExponentiationTime(trials int){
 	}
 	g2Time := time.Since(startG2)
 
+	startGT := time.Now()
+	for i := 0; i < trials; i++ {
+		_ = gT.Exp(models.RandomScalar())
+	}
+	gTTime := time.Since(startGT)
+
 	// calculate average and store in csv
 	avgG1Time := g1Time / time.Duration(trials)
 	avgG2Time := g2Time / time.Duration(trials)
+	avgGTTime := gTTime / time.Duration(trials)
 
 	file, err := os.Create("exponentiation_times.csv")
 	if err != nil {
@@ -398,6 +406,9 @@ func testExponentiationTime(trials int){
 		log.Fatalf("Error writing record to CSV: %v", err)
 	}
 
+	if err := writer.Write([]string{"GT", fmt.Sprintf("%d", avgGTTime.Microseconds())}); err != nil {
+		log.Fatalf("Error writing record to CSV: %v", err)
+	}
 
 
 }
