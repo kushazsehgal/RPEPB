@@ -1,4 +1,5 @@
-"Element, avg time for exponentiation (microseconds)"
-G1,416
-G2,1352
-GT,1636
+"Task, avg time (microseconds)"
+exp G1,420
+exp G2,1028
+exp GT,1536
+pairing,1766

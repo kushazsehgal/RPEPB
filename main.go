@@ -389,6 +389,14 @@ func testExponentiationTime(trials int){
 	avgG2Time := g2Time / time.Duration(trials)
 	avgGTTime := gTTime / time.Duration(trials)
 
+	// also calculate average pairing time - 
+	startPairing := time.Now()
+	for i := 0; i < trials; i++ {
+		_ = models.Pair(g1, g2)
+	}
+	pairingTime := time.Since(startPairing)
+	avgPairingTime := pairingTime / time.Duration(trials)
+
 	file, err := os.Create("exponentiation_times.csv")
 	if err != nil {
 		log.Fatalf("Error creating CSV file: %v", err)
@@ -396,17 +404,21 @@ func testExponentiationTime(trials int){
 	defer file.Close()
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
-	if err := writer.Write([]string{"Element, avg time for exponentiation (microseconds)"}); err != nil {
+	if err := writer.Write([]string{"Task, avg time (microseconds)"}); err != nil {
 		log.Fatalf("Error writing header to CSV: %v", err)
 	}
-	if err := writer.Write([]string{"G1", fmt.Sprintf("%d", avgG1Time.Microseconds())}); err != nil {
+	if err := writer.Write([]string{"exp G1", fmt.Sprintf("%d", avgG1Time.Microseconds())}); err != nil {
 		log.Fatalf("Error writing record to CSV: %v", err)
 	}
-	if err := writer.Write([]string{"G2", fmt.Sprintf("%d", avgG2Time.Microseconds())}); err != nil {
+	if err := writer.Write([]string{"exp G2", fmt.Sprintf("%d", avgG2Time.Microseconds())}); err != nil {
 		log.Fatalf("Error writing record to CSV: %v", err)
 	}
 
-	if err := writer.Write([]string{"GT", fmt.Sprintf("%d", avgGTTime.Microseconds())}); err != nil {
+	if err := writer.Write([]string{"exp GT", fmt.Sprintf("%d", avgGTTime.Microseconds())}); err != nil {
+		log.Fatalf("Error writing record to CSV: %v", err)
+	}
+
+	if err := writer.Write([]string{"pairing", fmt.Sprintf("%d", avgPairingTime.Microseconds())}); err != nil {
 		log.Fatalf("Error writing record to CSV: %v", err)
 	}
 
@@ -421,7 +433,7 @@ func main() {
 	trialsPerSetting := 3
 
 	fmt.Println("Starting exponentiation time tests...")
-	testExponentiationTime(10)
+	testExponentiationTime(1000)
 	fmt.Println("Exponentiation time tests completed.")
 
 	fmt.Println("Measuring sizes for ciphertexts...")
