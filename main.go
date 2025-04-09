@@ -429,23 +429,25 @@ func main() {
 
 	// Lvalues := []int{16,64}
 	// trialsPerSetting := 2
-	Lvalues := []int{16, 64, 256, 1024}
-	trialsPerSetting := 3
+	// Lvalues := []int{16, 64, 256, 1024}
+	Lvalues := []int{1024}
 
-	fmt.Println("Starting exponentiation time tests...")
-	testExponentiationTime(1000)
-	fmt.Println("Exponentiation time tests completed.")
+	trialsPerSetting := 5
 
-	fmt.Println("Measuring sizes for ciphertexts...")
-	testCT(Lvalues)
-	fmt.Println("Ciphertext size measurements completed.")
-	fmt.Println("Measuring sizes for group elements and keys...")
-	testSizes(Lvalues)
-	fmt.Println("Size measurements completed.")
+	// fmt.Println("Starting exponentiation time tests...")
+	// testExponentiationTime(1000)
+	// fmt.Println("Exponentiation time tests completed.")
+
+	// fmt.Println("Measuring sizes for ciphertexts...")
+	// testCT(Lvalues)
+	// fmt.Println("Ciphertext size measurements completed.")
+	// fmt.Println("Measuring sizes for group elements and keys...")
+	// testSizes(Lvalues)
+	// fmt.Println("Size measurements completed.")
 	
-	fmt.Println("Starting scheme direct tests...")
-	testSchemeDirectly(Lvalues, trialsPerSetting)
-	fmt.Println("Scheme tests completed.")
+	// fmt.Println("Starting scheme direct tests...")
+	// testSchemeDirectly(Lvalues, trialsPerSetting)
+	// fmt.Println("Scheme tests completed.")
 
 	fmt.Println("Starting decoder trace tests...")
 	testDecoderTrace(Lvalues, trialsPerSetting)
