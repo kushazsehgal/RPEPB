@@ -3,14 +3,3 @@ go mod tidy
 go mod build .
 go run .
 
-
-----------------------
-define n1 and n2 in terms of L (pg 37)
-optimise keygen and decrypt (pg 38)
-add encrypt message m to (x,y) --> first 3 for RPLBE
-and traceEcrypt
-how is vVec being used??
-
-commented at - 
-61 --> term 4
-195 -->  multiply x by psi
