@@ -28,7 +28,8 @@ The codebase implements:
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/rpepd_decoder.git
+git clone https://github.com/kushazsehgal/RPEPB.git
+```
 cd rpepd_decoder
 ```
 2. Initialize the Go module (only needed once):
