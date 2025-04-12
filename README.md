@@ -1,13 +1,11 @@
 
-# Cryptographic Scheme for Pooled Decryption and Traitor Tracing
-
-This repository implements the cryptographic schemes described in the research paper on "Silent Threshold Traitor Tracing & Enhancing Mempool Privacy". The implementation focuses on a pooled decryption protocol with a trace decoder mechanism that enables identification of malicious participants in a threshold cryptosystem.
+# Threhold Traitor Tracing with Silent Setup
+This repository implements the cryptographic schemes described in the research paper titled - "Silent Threshold Traitor Tracing & Enhancing Mempool Privacy".
 
 ## Overview
 
 The codebase implements:
-- A threshold cryptographic scheme with pooled decryption capabilities
-- A trace decoder for identifying potential traitors in the system
+- A threshold traitor tracing scheme with silent setup
 - Benchmarking tools for performance analysis
 - Size measurement utilities for various cryptographic components
 
