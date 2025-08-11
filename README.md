@@ -36,6 +36,11 @@ sudo apt install python3 python3-pip
 # macOS
 brew install python3
 ```
+Python Libraries
+```bash
+pip3 install --upgrade pip
+pip3 install pandas matplotlib
+```
 
 ### Installation
 
