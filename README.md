@@ -1,4 +1,4 @@
-
+[![DOI](https://zenodo.org/badge/938131437.svg)](https://doi.org/10.5281/zenodo.16795779)
 # Threhold Traitor Tracing with Silent Setup
 This repository implements the cryptographic schemes described in the research paper titled - "Silent Threshold Traitor Tracing & Enhancing Mempool Privacy".
 
