@@ -20,7 +20,22 @@ The codebase implements:
 
 ### Prerequisites
 
-- Go 1.16 or later
+Go
+```bash
+# linux
+wget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz
+sudo rm -rf /usr/local/go
+sudo tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz
+# macOS
+brew install go
+```
+Python
+``` bash
+# ubuntu
+sudo apt install python3 python3-pip
+# macOS
+brew install python3
+```
 
 ### Installation
 
